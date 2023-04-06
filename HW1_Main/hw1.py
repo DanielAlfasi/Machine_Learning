@@ -223,7 +223,6 @@ def forward_feature_selection(X_train, y_train, X_val, y_val, best_alpha, iterat
     selected_features = []
     
     feature_error_dict = {}
-    #np.random.seed(42)
     for i in range(5):
         np.random.seed(42)
         rand_theta = np.random.random(size = i+2) # Set theta size according to selected features
