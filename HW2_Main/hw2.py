@@ -275,6 +275,14 @@ def build_tree(data, impurity, gain_ratio=False, chi=1, max_depth=1000):
 
 
 def chi_test(decision_node):
+    """
+    The function returns true if the given node has passed the chi square test (This split isnt random)
+
+    Input: node of a decision tree
+
+    Output: True - the node has passed the chi square test otherwise false
+
+    """
     chi_value = calculate_chi(decision_node)
     degree_of_freedom = len(decision_node.children) - 1
     alpha_risk = decision_node.chi
@@ -285,6 +293,13 @@ def chi_test(decision_node):
 
 
 def calculate_chi(decision_node):
+    """
+    Calculate the chi square value for the given node
+
+    Input: a desicion tree node
+
+    Output: the chi square value for that node
+    """
     chi_value = 0
     label_column = -1
 
@@ -414,6 +429,14 @@ def chi_pruning(X_train, X_test):
 
 
 def find_tree_depth(node):
+    """
+    find the depth of a tree
+
+    Input:
+    - node: a root of a desicion tree
+
+    Output: the depth of the tree
+    """
     if node.terminal == True:
         return node.depth
 
