@@ -233,6 +233,10 @@ class DecisionNode:
 
         self.feature = best_feature_index
 
+        # if len(best_feature_data_group) <= 1:
+        #     self.terminal = True
+        #     return
+
         for feature_value in best_feature_data_group:
             child = DecisionNode(
                 best_feature_data_group[feature_value], -1, self.depth + 1, self.chi, self.max_depth, self.gain_ratio)
@@ -261,7 +265,7 @@ def build_tree(data, impurity, gain_ratio=False, chi=1, max_depth=1000):
 
     while queue:
         curr_node = queue.pop(0)
-
+        # Does calc entropy with gain ratio = true gives me impurity = 0 if the node is pure
         if impurity(curr_node.data) == 0 or curr_node.depth >= curr_node.max_depth:
             curr_node.terminal = True
         else:
