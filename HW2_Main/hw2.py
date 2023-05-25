@@ -233,9 +233,9 @@ class DecisionNode:
 
         self.feature = best_feature_index
 
-        # if len(best_feature_data_group) <= 1:
-        #     self.terminal = True
-        #     return
+        if len(best_feature_data_group) <= 1:
+            self.terminal = True
+            return
 
         for feature_value in best_feature_data_group:
             child = DecisionNode(
