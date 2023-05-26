@@ -178,14 +178,9 @@ def norm_pdf(data, mu, sigma):
 
     Returns the normal distribution pdf according to the given mu and sigma for the given x.
     """
-    p = None
-    ###########################################################################
-    # TODO: Implement the function.                                           #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+    p = (1 / (sigma * np.sqrt(2*np.pi))) * \
+        (np.e**((-0.5)*((data-mu)/sigma)**2))
+
     return p
 
 
@@ -224,25 +219,23 @@ class EM(object):
         """
         Initialize distribution params
         """
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+        num_samples, num_features = data.shape
+
+        indices = np.random.choice(num_samples, self.k, replace=False)
+        self.mus = data[indices]
+        self.weights = np.full(self.k, 1 / self.k)
+        self.sigmas = np.full((self.k, num_features), data.std(axis=0))
 
     def expectation(self, data):
         """
         E step - This function should calculate and update the responsibilities
         """
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+
+        self.responsibilities = np.zeros((data.shape[0], self.k))
+
+        for i in range(self.k):
+            self.responsibilities[:, i] = self.weights[i] * \
+                norm_pdf(data, self.mus[i, :], self.sigmas[i, :])
 
     def maximization(self, data):
         """
