@@ -273,7 +273,7 @@ class EM(object):
 
             likelihood = np.sum(
                 self.weights * norm_pdf(data, self.mus[:, np.newaxis], self.sigmas[:, np.newaxis]), axis=0)
-            likelihood = np.sum(np.log(likelihood))
+            likelihood = np.sum((-1) * np.log(likelihood))
 
             if np.abs(prev_likelihood - likelihood) < self.eps:
                 break
