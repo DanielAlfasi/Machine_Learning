@@ -235,19 +235,24 @@ class EM(object):
 
         for i in range(self.k):
             self.responsibilities[:, i] = self.weights[i] * \
-                norm_pdf(data, self.mus[i, :], self.sigmas[i, :])
+                norm_pdf(data, self.mus[i, :], self.sigmas[i, :]).flatten()
+
+        self.responsibilities = self.responsibilities / \
+            self.responsibilities.sum(axis=1, keepdims=1)
 
     def maximization(self, data):
         """
         M step - This function should calculate and update the distribution params
         """
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+        number_of_instances = data.shape[0]
+        for gaussian_index in range(self.k):
+            self.weights[gaussian_index] = np.sum(
+                self.responsibilities[:, gaussian_index])/number_of_instances
+            self.mus[gaussian_index, :] = np.dot(
+                self.responsibilities[:, gaussian_index], data) / (self.weights[gaussian_index] * number_of_instances)
+            diff = data - self.mus[gaussian_index, :]
+            self.sigmas[gaussian_index, :] = np.sqrt(
+                np.dot(self.responsibilities[:, gaussian_index], diff**2) / (self.weights[gaussian_index] * number_of_instances))
 
     def fit(self, data):
         """
@@ -258,13 +263,21 @@ class EM(object):
         Stop the function when the difference between the previous cost and the current is less than eps
         or when you reach n_iter.
         """
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+        self.init_params(data)
+
+        prev_likelihood = float('-inf')
+
+        for i in range(self.n_iter):
+            self.expectation(data)
+            self.maximization(data)
+
+            likelihood = np.sum(
+                self.weights * norm_pdf(data, self.mus[:, np.newaxis], self.sigmas[:, np.newaxis]), axis=0)
+            likelihood = np.sum(np.log(likelihood))
+
+            if np.abs(prev_likelihood - likelihood) < self.eps:
+                break
+            prev_likelihood = likelihood
 
     def get_dist_params(self):
         return self.weights, self.mus, self.sigmas
