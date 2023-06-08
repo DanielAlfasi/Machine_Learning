@@ -245,6 +245,7 @@ class EM(object):
         M step - This function should calculate and update the distribution params
         """
         number_of_instances = data.shape[0]
+
         for gaussian_index in range(self.k):
             self.weights[gaussian_index] = np.sum(
                 self.responsibilities[:, gaussian_index])/number_of_instances
@@ -277,6 +278,7 @@ class EM(object):
 
             if np.abs(prev_likelihood - likelihood) < self.eps:
                 break
+
             prev_likelihood = likelihood
 
     def get_dist_params(self):
@@ -297,14 +299,11 @@ def gmm_pdf(data, weights, mus, sigmas):
     Returns the GMM distribution pdf according to the given mus, sigmas and weights
     for the given data.
     """
-    pdf = None
-    ###########################################################################
-    # TODO: Implement the function.                                           #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+    pdf = 0
+
+    for weight, mu, sigma in zip(weights, mus, sigmas):
+        pdf += weight * norm_pdf(data, mu, sigma)
+
     return pdf
 
 
@@ -324,6 +323,7 @@ class NaiveBayesGaussian(object):
         self.k = k
         self.random_state = random_state
         self.prior = None
+        self.classes = None
 
     def fit(self, X, y):
         """
@@ -337,13 +337,29 @@ class NaiveBayesGaussian(object):
         y : array-like, shape = [n_examples]
           Target values.
         """
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+
+        n_examples = X.shape[0]
+
+        # Initialize dictionary
+        self.classes = {}
+
+        # Identify unique classes and their counts
+        unique_classes, counts = np.unique(y, return_counts=True)
+
+        for cls, count in zip(unique_classes, counts):
+            # Compute prior probability
+            prior_prob = count / n_examples
+            # Extract corresponding rows from X
+            X_cls = X[y == cls, :]
+            X_cls = X_cls.reshape(-1, 1)
+            # EM
+            em = EM(self.k, random_state=self.random_state)
+            # EM learning phase
+            em.fit(X_cls)
+            # EM paramters
+            weights, mus, sigmas = em.get_dist_params()
+            # Add to dictionary
+            self.classes[cls] = [prior_prob, weights, mus, sigmas]
 
     def predict(self, X):
         """
@@ -352,14 +368,36 @@ class NaiveBayesGaussian(object):
         ----------
         X : {array-like}, shape = [n_examples, n_features]
         """
-        preds = None
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+        n_examples = X.shape[0]
+        cls_posterior_dict = {}
+
+        # Compute the posterior for each class
+        for cls in self.classes:
+            gmms_of_features_vector = gmm_pdf(X, self.classes[cls][1],
+                                              self.classes[cls][2], self.classes[cls][3])
+
+            # Calculate the product along each row to get the joint likelihood for each instance
+            joint_likelihood = np.prod(gmms_of_features_vector, axis=1)
+
+            # Multiply by the prior to get the posterior
+            cls_posterior_dict[cls] = joint_likelihood * self.classes[cls][0]
+
+        # Initialize an array to hold the predictions
+        preds = np.zeros(n_examples)
+
+        # For each instance, find the class with the maximum posterior
+        for i in range(n_examples):
+            max_cls = None
+            max_posterior = 0
+
+            for cls in self.classes:
+                if cls_posterior_dict[cls][i] > max_posterior:
+                    max_cls = cls
+                    max_posterior = cls_posterior_dict[cls][i]
+
+            # Assign the class with the maximum posterior to the i-th instance
+            preds[i] = max_cls
+
         return preds
 
 
@@ -393,17 +431,45 @@ def model_evaluation(x_train, y_train, x_test, y_test, k, best_eta, best_eps):
     bayes_train_acc = None
     bayes_test_acc = None
 
-    ###########################################################################
-    # TODO: Implement the function.                                           #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+    lor_model = LogisticRegressionGD(best_eta, eps=best_eps)
+    lor_model.fit(x_train, y_train)
+
+    bayes_model = NaiveBayesGaussian(k)
+    bayes_model.fit(x_train, y_train)
+
+    lor_train_acc = accuracy_score(lor_model.predict(x_train), y_train)
+    lor_test_acc = accuracy_score(lor_model.predict(x_test), y_test)
+    bayes_train_acc = accuracy_score(bayes_model.predict(x_train), y_train)
+    bayes_test_acc = accuracy_score(bayes_model.predict(x_test), y_test)
+
     return {'lor_train_acc': lor_train_acc,
             'lor_test_acc': lor_test_acc,
             'bayes_train_acc': bayes_train_acc,
             'bayes_test_acc': bayes_test_acc}
+
+
+def accuracy_score(y_true, y_pred):
+    """
+    Calculate accuracy of predictions.
+
+    Parameters
+    ----------
+    y_true : array-like, shape = [n_examples]
+        True class labels.
+    y_pred : array-like, shape = [n_examples]
+        Predicted class labels by the model.
+
+    Returns
+    -------
+    accuracy : float
+    """
+    # Ensure inputs are numpy arrays
+    y_true = np.array(y_true)
+    y_pred = np.array(y_pred)
+
+    # Calculate accuracy
+    accuracy = np.sum(y_true == y_pred) / len(y_true)
+    return accuracy
 
 
 def generate_datasets():
