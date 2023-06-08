@@ -264,22 +264,35 @@ class EM(object):
         Stop the function when the difference between the previous cost and the current is less than eps
         or when you reach n_iter.
         """
-        self.init_params(data)
+        # self.init_params(data)
 
-        prev_likelihood = float('-inf')
+        # prev_likelihood = float('-inf')
+
+        # for i in range(self.n_iter):
+        #     self.expectation(data)
+        #     self.maximization(data)
+
+        #     likelihood = np.sum(
+        #         self.weights * norm_pdf(data, self.mus[:, np.newaxis], self.sigmas[:, np.newaxis]), axis=0)
+        #     likelihood = np.sum((-1) * np.log(likelihood))
+
+        #     if np.abs(prev_likelihood - likelihood) < self.eps:
+        #         break
+
+        #     prev_likelihood = likelihood
+        self.init_params(data)
+        self.costs = []
 
         for i in range(self.n_iter):
             self.expectation(data)
             self.maximization(data)
-
-            likelihood = np.sum(
-                self.weights * norm_pdf(data, self.mus[:, np.newaxis], self.sigmas[:, np.newaxis]), axis=0)
-            likelihood = np.sum((-1) * np.log(likelihood))
-
-            if np.abs(prev_likelihood - likelihood) < self.eps:
+            likelihoods = self.weights * \
+                norm_pdf(data[:, np.newaxis, :], self.mus, self.sigmas)
+            log_likelihood = np.sum(np.log(np.sum(likelihoods, axis=1)))
+            cost = -1 * log_likelihood
+            self.costs.append(cost)
+            if i > 0 and self.costs[i - 1] - self.costs[i] < self.eps:
                 break
-
-            prev_likelihood = likelihood
 
     def get_dist_params(self):
         return self.weights, self.mus, self.sigmas
