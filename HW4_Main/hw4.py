@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.colors import ListedColormap
 
 
 class LogisticRegressionGD(object):
@@ -264,35 +267,22 @@ class EM(object):
         Stop the function when the difference between the previous cost and the current is less than eps
         or when you reach n_iter.
         """
-        # self.init_params(data)
-
-        # prev_likelihood = float('-inf')
-
-        # for i in range(self.n_iter):
-        #     self.expectation(data)
-        #     self.maximization(data)
-
-        #     likelihood = np.sum(
-        #         self.weights * norm_pdf(data, self.mus[:, np.newaxis], self.sigmas[:, np.newaxis]), axis=0)
-        #     likelihood = np.sum((-1) * np.log(likelihood))
-
-        #     if np.abs(prev_likelihood - likelihood) < self.eps:
-        #         break
-
-        #     prev_likelihood = likelihood
         self.init_params(data)
-        self.costs = []
+
+        prev_likelihood = float('-inf')
 
         for i in range(self.n_iter):
             self.expectation(data)
             self.maximization(data)
-            likelihoods = self.weights * \
-                norm_pdf(data[:, np.newaxis, :], self.mus, self.sigmas)
-            log_likelihood = np.sum(np.log(np.sum(likelihoods, axis=1)))
-            cost = -1 * log_likelihood
-            self.costs.append(cost)
-            if i > 0 and self.costs[i - 1] - self.costs[i] < self.eps:
+
+            likelihood = np.sum(
+                self.weights * norm_pdf(data, self.mus[:, np.newaxis], self.sigmas[:, np.newaxis]), axis=0)
+            likelihood = np.sum((-1) * np.log(likelihood))
+
+            if np.abs(prev_likelihood - likelihood) < self.eps:
                 break
+
+            prev_likelihood = likelihood
 
     def get_dist_params(self):
         return self.weights, self.mus, self.sigmas
@@ -336,7 +326,7 @@ class NaiveBayesGaussian(object):
         self.k = k
         self.random_state = random_state
         self.prior = None
-        self.classes = None
+        self.classes_params = None
 
     def fit(self, X, y):
         """
@@ -354,25 +344,23 @@ class NaiveBayesGaussian(object):
         n_examples = X.shape[0]
 
         # Initialize dictionary
-        self.classes = {}
-
+        self.prior = {}
+        self.classes_params = {}
         # Identify unique classes and their counts
         unique_classes, counts = np.unique(y, return_counts=True)
 
         for cls, count in zip(unique_classes, counts):
             # Compute prior probability
             prior_prob = count / n_examples
+            self.prior[cls] = prior_prob
+            # Init empty list for each class
+            self.classes_params[cls] = []
             # Extract corresponding rows from X
             X_cls = X[y == cls, :]
-            X_cls = X_cls.reshape(-1, 1)
-            # EM
-            em = EM(self.k, random_state=self.random_state)
-            # EM learning phase
-            em.fit(X_cls)
-            # EM paramters
-            weights, mus, sigmas = em.get_dist_params()
-            # Add to dictionary
-            self.classes[cls] = [prior_prob, weights, mus, sigmas]
+            for feature_index in range(X_cls.shape[1]):
+                em = EM(self.k)
+                em.fit(X_cls[:, feature_index].reshape(-1, 1))
+                self.classes_params[cls].append(em.get_dist_params())
 
     def predict(self, X):
         """
@@ -381,35 +369,22 @@ class NaiveBayesGaussian(object):
         ----------
         X : {array-like}, shape = [n_examples, n_features]
         """
-        n_examples = X.shape[0]
-        cls_posterior_dict = {}
+        preds = np.zeros(X.shape[0])
+        posteriors_to_compare = np.zeros((X.shape[0], 0))
 
-        # Compute the posterior for each class
-        for cls in self.classes:
-            gmms_of_features_vector = gmm_pdf(X, self.classes[cls][1],
-                                              self.classes[cls][2], self.classes[cls][3])
+        for cls in self.classes_params.keys():
+            current_cls_posteriors = np.ones(X.shape[0])
 
-            # Calculate the product along each row to get the joint likelihood for each instance
-            joint_likelihood = np.prod(gmms_of_features_vector, axis=1)
+            for feature_index in range(X.shape[1]):
+                current_cls_posteriors *= gmm_pdf(
+                    X[:, feature_index], *self.classes_params[cls][feature_index])
 
-            # Multiply by the prior to get the posterior
-            cls_posterior_dict[cls] = joint_likelihood * self.classes[cls][0]
+            current_cls_posteriors = current_cls_posteriors * self.prior[cls]
+            current_cls_posteriors = current_cls_posteriors.reshape((-1, 1))
+            posteriors_to_compare = np.hstack(
+                (posteriors_to_compare, current_cls_posteriors))
 
-        # Initialize an array to hold the predictions
-        preds = np.zeros(n_examples)
-
-        # For each instance, find the class with the maximum posterior
-        for i in range(n_examples):
-            max_cls = None
-            max_posterior = 0
-
-            for cls in self.classes:
-                if cls_posterior_dict[cls][i] > max_posterior:
-                    max_cls = cls
-                    max_posterior = cls_posterior_dict[cls][i]
-
-            # Assign the class with the maximum posterior to the i-th instance
-            preds[i] = max_cls
+        preds = np.argmax(posteriors_to_compare, axis=1)
 
         return preds
 
@@ -444,10 +419,10 @@ def model_evaluation(x_train, y_train, x_test, y_test, k, best_eta, best_eps):
     bayes_train_acc = None
     bayes_test_acc = None
 
-    lor_model = LogisticRegressionGD(best_eta, eps=best_eps)
+    lor_model = LogisticRegressionGD(eta=best_eta, eps=best_eps)
     lor_model.fit(x_train, y_train)
 
-    bayes_model = NaiveBayesGaussian(k)
+    bayes_model = NaiveBayesGaussian(k=k)
     bayes_model.fit(x_train, y_train)
 
     lor_train_acc = accuracy_score(lor_model.predict(x_train), y_train)
@@ -496,15 +471,107 @@ def generate_datasets():
     dataset_a_labels = None
     dataset_b_features = None
     dataset_b_labels = None
-    ###########################################################################
-    # TODO: Implement the function.                                           #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+    np.random.seed(0)
+
+    mean1 = [3, 3, 3]
+    cov1 = np.identity(3) * 1  # Low variance, points are tightly clustered
+    data1 = multivariate_normal(mean1, cov1).rvs(500)
+    labels1 = np.zeros(500)
+
+    mean2 = [0, 0, 0]
+    cov2 = np.identity(3) * 1
+    data2 = multivariate_normal(mean2, cov2).rvs(500)
+    labels2 = np.ones(500)
+
+    mean3 = [-3, -3, -3]
+    cov3 = np.identity(3) * 1
+    data3 = multivariate_normal(mean3, cov3).rvs(500)
+    labels3 = np.zeros(500)
+
+    # Concatenate the data and labels
+    dataset_a_features = np.vstack((data1, data2, data3))
+    dataset_a_labels = np.hstack((labels1, labels2, labels3))
+
+    mean1 = [1, 0, 1]
+    cov1 = [[1, 0.9, 0.9], [0.9, 1, 0.9], [0.9, 0.9, 1]]
+    data1 = multivariate_normal(mean1, cov1).rvs(500)
+    labels1 = np.zeros(500)
+
+    mean2 = [-1, 0, -1]
+    cov2 = [[1, 1, 0.9], [0.9, 1, 0.9], [
+        0.9, 0.9, 1]]
+    data2 = multivariate_normal(mean2, cov2).rvs(500)
+    labels2 = np.ones(500)
+
+    # Concatenate the data and labels
+    dataset_b_features = np.vstack((data1, data2))
+    dataset_b_labels = np.hstack((labels1, labels2))
+
     return {'dataset_a_features': dataset_a_features,
             'dataset_a_labels': dataset_a_labels,
             'dataset_b_features': dataset_b_features,
             'dataset_b_labels': dataset_b_labels
             }
+
+
+def plot_dataset(features, labels, title):
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Separate data points by class (label)
+    class_0 = features[labels == 0]
+    class_1 = features[labels == 1]
+
+    # Plot points for each class
+    ax.scatter(class_0[:, 0], class_0[:, 1],
+               class_0[:, 2], alpha=0.7, label='Class 0')
+    ax.scatter(class_1[:, 0], class_1[:, 1],
+               class_1[:, 2], alpha=0.7, label='Class 1')
+
+    ax.set_title(title)
+    ax.set_xlabel('Feature 1')
+    ax.set_ylabel('Feature 2')
+    ax.set_zlabel('Feature 3')
+    ax.legend()
+
+    plt.show()
+
+
+def plot_cost(lor_model):
+    """
+    Plot the cost function values from a Logistic Regression model.
+
+    Parameters
+    ----------
+    lor_model : LogisticRegressionGD object
+        A fitted LogisticRegressionGD model.
+    """
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(len(lor_model.Js)), lor_model.Js, marker='o')
+    plt.xlabel('Iteration')
+    plt.ylabel('Cost')
+    plt.title('Cost vs Iteration for Logistic Regression')
+    plt.grid(True)
+    plt.show()
+
+
+def process_dataset(features, labels, test_size=0.2, random_state=42):
+    # Concatenate the data and labels along the second axis
+    data_with_labels = np.hstack((features, labels.reshape(-1, 1)))
+
+    # Shuffle the data
+    np.random.seed(random_state)
+    np.random.shuffle(data_with_labels)
+
+    # Split the shuffled data back into features and labels
+    features, labels = data_with_labels[:, :-1], data_with_labels[:, -1]
+
+    # Compute the size of the test set
+    test_size = int(test_size * features.shape[0])
+
+    # Split the data into a train set and a test set
+    X_test, X_train = features[:test_size], features[test_size:]
+    y_test, y_train = labels[:test_size], labels[test_size:]
+
+    return X_train, X_test, y_train, y_test
