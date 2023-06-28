@@ -1,3 +1,4 @@
+from skimage import io
 import numpy as np
 
 
@@ -53,7 +54,7 @@ def kmeans(X, k, p, max_iter=100):
 
 
 def kmeans_with_given_centroids(X, k, p, max_iter, centroids):
-    recomputed_centroids = np.copy(centroids)
+    recomputed_centroids = np.zeros_like(centroids)
 
     for iteration_index in range(max_iter):
         distances_from_centroids = lp_distance(X, centroids, p)
@@ -67,9 +68,11 @@ def kmeans_with_given_centroids(X, k, p, max_iter, centroids):
                 instances_for_centroid, axis=0)
 
         if np.array_equal(centroids, recomputed_centroids):
+            print(iteration_index)
             break
         else:
             centroids = recomputed_centroids
+            recomputed_centroids = np.zeros_like(centroids)
 
     return centroids, classes
 
@@ -124,3 +127,15 @@ def kmeans_pp(X, k, p, max_iter=100):
         X, k, p, max_iter, centroids)
 
     return centroids, classes
+
+
+def calculate_total_distance(data, classes, centroids):
+    total_distance = 0
+    for i in range(data.shape[0]):
+        # Find the corresponding centroid for this data point
+        centroid = centroids[classes[i]]
+        # Calculate the Euclidean distance between the data point and its centroid
+        distance = np.linalg.norm(data[i] - centroid)
+        # Add this distance to the total
+        total_distance += distance
+    return total_distance
