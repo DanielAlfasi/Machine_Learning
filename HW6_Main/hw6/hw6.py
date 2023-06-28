@@ -16,6 +16,24 @@ def get_random_centroids(X, k):
     return np.asarray(centroids).astype(float)
 
 
+# def lp_distance(X, centroids, p=2):
+#     '''
+#     Inputs:
+#     A single image of shape (num_pixels, 3)
+#     The centroids (k, 3)
+#     The distance parameter p
+
+#     output: numpy array of shape `(k, num_pixels)` thats holds the distances of
+#     all points in RGB space from all centroids
+#     '''
+#     k = len(centroids)
+#     distances = np.zeros((k, X.shape[0]))
+
+#     for i, centroid in enumerate(centroids):
+#         distances[i, :] = (np.sum(np.absolute(
+#             X-centroid)**p, axis=1, keepdims=True)**(1/p)).T
+
+#     return distances
 def lp_distance(X, centroids, p=2):
     '''
     Inputs: 
@@ -30,8 +48,7 @@ def lp_distance(X, centroids, p=2):
     distances = np.zeros((k, X.shape[0]))
 
     for i, centroid in enumerate(centroids):
-        distances[i, :] = (np.sum(np.absolute(
-            X-centroid)**p, axis=1, keepdims=True)**(1/p)).T
+        distances[i, :] = np.sum(np.absolute(X-centroid)**p, axis=1)**(1/p)
 
     return distances
 
@@ -129,14 +146,14 @@ def kmeans_pp(X, k, p, max_iter=100):
     return centroids, classes
 
 
-def calculate_total_p_distance(data, classes, centroids, p=2):
-    total_distance = 0
-    for i in range(data.shape[0]):
-        # Find the corresponding centroid for this data point
-        centroid = centroids[classes[i]]
-        # Calculate the p-distance between the data point and its centroid
-        distance = lp_distance(data[i].reshape(
-            1, -1), centroid.reshape(1, -1), p)
-        # Add this distance to the total
-        total_distance += np.sum(distance)
-    return total_distance
+def calculate_total_distance(data, centroids):
+
+    distances = lp_distance(data, centroids, 1)
+
+    # Find the minimum value of every column
+    min_values = np.min(distances, axis=0)
+
+    # Sum those minimum values
+    sum_of_min_values = np.sum(min_values)
+
+    return sum_of_min_values
