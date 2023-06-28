@@ -129,13 +129,14 @@ def kmeans_pp(X, k, p, max_iter=100):
     return centroids, classes
 
 
-def calculate_total_distance(data, classes, centroids):
+def calculate_total_p_distance(data, classes, centroids, p=2):
     total_distance = 0
     for i in range(data.shape[0]):
         # Find the corresponding centroid for this data point
         centroid = centroids[classes[i]]
-        # Calculate the Euclidean distance between the data point and its centroid
-        distance = np.linalg.norm(data[i] - centroid)
+        # Calculate the p-distance between the data point and its centroid
+        distance = lp_distance(data[i].reshape(
+            1, -1), centroid.reshape(1, -1), p)
         # Add this distance to the total
-        total_distance += distance
+        total_distance += np.sum(distance)
     return total_distance
