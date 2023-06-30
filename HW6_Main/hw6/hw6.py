@@ -16,39 +16,22 @@ def get_random_centroids(X, k):
     return np.asarray(centroids).astype(float)
 
 
-# def lp_distance(X, centroids, p=2):
-#     '''
-#     Inputs:
-#     A single image of shape (num_pixels, 3)
-#     The centroids (k, 3)
-#     The distance parameter p
-
-#     output: numpy array of shape `(k, num_pixels)` thats holds the distances of
-#     all points in RGB space from all centroids
-#     '''
-#     k = len(centroids)
-#     distances = np.zeros((k, X.shape[0]))
-
-#     for i, centroid in enumerate(centroids):
-#         distances[i, :] = (np.sum(np.absolute(
-#             X-centroid)**p, axis=1, keepdims=True)**(1/p)).T
-
-#     return distances
 def lp_distance(X, centroids, p=2):
     '''
-    Inputs: 
+    Inputs:
     A single image of shape (num_pixels, 3)
     The centroids (k, 3)
     The distance parameter p
 
-    output: numpy array of shape `(k, num_pixels)` thats holds the distances of 
+    output: numpy array of shape `(k, num_pixels)` thats holds the distances of
     all points in RGB space from all centroids
     '''
     k = len(centroids)
     distances = np.zeros((k, X.shape[0]))
 
     for i, centroid in enumerate(centroids):
-        distances[i, :] = np.sum(np.absolute(X-centroid)**p, axis=1)**(1/p)
+        distances[i, :] = (np.sum(np.absolute(
+            X-centroid)**p, axis=1, keepdims=True)**(1/p)).T
 
     return distances
 
@@ -84,7 +67,7 @@ def kmeans_with_given_centroids(X, k, p, max_iter, centroids):
             recomputed_centroids[i, :] = np.mean(
                 instances_for_centroid, axis=0)
 
-        if np.array_equal(centroids, recomputed_centroids):
+        if np.allclose(centroids, recomputed_centroids, rtol=0, atol=3):
             print(iteration_index)
             break
         else:
@@ -148,12 +131,4 @@ def kmeans_pp(X, k, p, max_iter=100):
 
 def calculate_total_distance(data, centroids):
 
-    distances = lp_distance(data, centroids, 1)
-
-    # Find the minimum value of every column
-    min_values = np.min(distances, axis=0)
-
-    # Sum those minimum values
-    sum_of_min_values = np.sum(min_values)
-
-    return sum_of_min_values
+    return np.sum(np.amin(lp_distance(data, centroids, 2), axis=0) ** 2)
